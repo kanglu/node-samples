@@ -4,6 +4,10 @@
 
 This is a simple hacked up ```node.js``` application that will act as client and server for websocket communication using the ```ws``` module (<https://github.com/websockets/ws>).
 
+I also used the ```random-js``` module for just generating random range of integers.
+
+All dependent modules have been checked in here as well for convenience.
+
 I did this primarily to get myself familiarized with the websockets and node.js modules. It is not production worthy code.
 
 ## Here is a list of the required node modules
