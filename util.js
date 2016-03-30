@@ -17,19 +17,28 @@ var validAndLog = function(message, timeCalc) {
     var obj = null;
     if (message && !message.binary) {
         obj = JSON.parse(message);
-        if (obj.chksum === getHash(obj.data)) {
-            console.log("received: message sent on (" + obj.date + ")\n");
-            console.log(JSON.stringify(obj, null, 4));
-        }
-        if (timeCalc && obj && (typeof obj.id === 'number') && !isNaN(obj.id)) {
-            var stTime = payloadMap[obj.id];
-            if (stTime) {
-                totalClientElapsedTime += (Date.now() - payloadMap[obj.id]);
-                delete payloadMap[obj.id];
+        if (obj.chksum) {
+            if (obj.chksum === getHash(obj.data)) {
+                console.log("received: message sent on (" + obj.date + ")\n");
+                console.log(JSON.stringify(obj, null, 4));
             }
-        }
-        if (!obj.data.operation) {
-            obj = null;
+            if (timeCalc && obj && (typeof obj.id === 'number') && !isNaN(obj.id)) {
+                var stTime = payloadMap[obj.id];
+                if (stTime) {
+                    totalClientElapsedTime += (Date.now() - payloadMap[obj.id]);
+                    delete payloadMap[obj.id];
+                }
+            }
+            if (!obj.data.operation) {
+                obj = null;
+            }
+        } else if (obj.uuid) {
+            var uuid = obj.uuid;
+            var request = obj.request;
+            var parameters = request.parameters;
+            if (!request || !request.operation || !request.parameters) {
+                obj = null;
+            }
         }
     }
     return obj;
@@ -59,7 +68,7 @@ var operations = {
     },
 
     "add": function(ws, message, pobj) {
-    	var obj = pobj.data;
+        var obj = pobj.data;
         if (obj.p1 && obj.p2) {
             var data = {
                 "params": "asked: " + obj.p1.toString() + " + " + obj.p2.toString(),
@@ -67,6 +76,21 @@ var operations = {
             };
             var respObj = createPayload(data);
             respObj.id = pobj.id;
+            ws.send(JSON.stringify(respObj));
+        }
+    },
+
+    "add2": function(ws, message, pobj) {
+        var obj = pobj.request.parameters;
+        if (obj.p1 && obj.p2) {
+            var data = {
+                "params": "asked: " + obj.p1.toString() + " + " + obj.p2.toString(),
+                "answer": obj.p1 + obj.p2
+            };
+            var respObj = {
+                "uuid": pobj.uuid,
+                "response": data
+            };
             ws.send(JSON.stringify(respObj));
         }
     }
@@ -81,11 +105,18 @@ var sendRequest = function(ws, messages) {
 
 var execOperation = function(ws, message, obj) {
     if (obj) {
-        var op = operations[obj.data.operation];
-        if (op) {
-            var start = Date.now();
-            op(ws, message, obj);
-            totalServerElapsedTime += (Date.now() - start);
+        if (obj.data) {
+            var op = operations[obj.data.operation];
+            if (op) {
+                var start = Date.now();
+                op(ws, message, obj);
+                totalServerElapsedTime += (Date.now() - start);
+            }
+        } else if (obj.request) {
+            var op = operations[obj.request.operation];
+            if (op) {
+                op(ws, message, obj);
+            }
         }
     }
 };
